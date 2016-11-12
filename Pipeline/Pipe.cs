@@ -17,9 +17,9 @@
 		#endregion
 
 		#region Field
-		AutoResetEvent EventForPrev;
-		AutoResetEvent EventForCurrent;
 		Thread T;
+		AutoResetEvent ResetEvent;
+		AutoResetEvent PrevResetEvent;
 		#endregion
 
 		#region Property
@@ -46,18 +46,18 @@
 		public void Receive(object Data)
 		{
 			if (!CanReceive)
-				EventForPrev.Reset();
+				PrevResetEvent.Reset();
 
-			EventForPrev.WaitOne();
+			PrevResetEvent.WaitOne();
 			Save(Data);
-			EventForCurrent.Set();
+			ResetEvent.Set();
 		}
 
 		protected object Request()
 		{
-			EventForCurrent.WaitOne();
+			ResetEvent.WaitOne();
 			object Data = Load();
-			EventForPrev.Set();
+			PrevResetEvent.Set();
 			return Data;
 		}
 
@@ -70,9 +70,8 @@
 		public virtual void Initialize()
 		{
 			CanReceive = true;
-
-			EventForPrev = new AutoResetEvent(true);
-			EventForCurrent = new AutoResetEvent(false);
+			ResetEvent = new AutoResetEvent(false);
+			PrevResetEvent = new AutoResetEvent(true);
 
 			T = new Thread(ThreadProc);
 			T.Start();
@@ -85,15 +84,15 @@
 				T.Abort();
 				T = null;
 			}
-			if (EventForPrev != null)
+			if (ResetEvent != null)
 			{
-				EventForPrev.Dispose();
-				EventForPrev = null;
+				ResetEvent.Dispose();
+				ResetEvent = null;
 			}
-			if (EventForCurrent != null)
+			if (PrevResetEvent != null)
 			{
-				EventForCurrent.Dispose();
-				EventForCurrent = null;
+				PrevResetEvent.Dispose();
+				PrevResetEvent = null;
 			}
 		}
 		#endregion
@@ -103,7 +102,9 @@
 		{
 			while (true)
 			{
-				Next?.Receive(Process(Request()));
+				object Data = Process(Request());
+
+				Next?.Receive(Data);
 			}
 		}
 		#endregion

@@ -1,54 +1,56 @@
 ﻿using System;
 using System.Threading;
-using System.Collections.Concurrent;
 
 namespace Test_Pipeline
 {
 	class Program
 	{
+		#region Main
 		static void Main(string[] args)
 		{
-			Initialize();
-
 			Pipeline PL = new Pipeline();
 
 			for (int i = 0; i < 3; i++)
 				PL.Add(new TestPipe());
 
-			for (int j = 0; j < 3; j++)
-				PL.Receive(null);
+			for (int j = 0; j < 5; j++)
+			{
+				PL.Receive(j);
+				RandomEffect(PL);
+			}
 
-			Thread.Sleep(3000);
+			Console.ReadLine();
 
-			Finalize();
-		}
-
-		#region Method
-		static void Initialize()
-		{
-			T.Start();
-		}
-
-		static void Finalize()
-		{
-			T.Abort();
+			PL.Dispose();
 		}
 		#endregion
 
-		#region Threading
-		static Thread T = new Thread(ThreadProc);
+		#region Field
+		static Random R = new Random();
+		#endregion
 
-		public static ConcurrentQueue<string> MessageQueue = new ConcurrentQueue<string>();
-
-		static void ThreadProc()
+		#region Method
+		static void RandomEffect(Pipeline Pipeline)
 		{
-			while (true)
+			switch (R.Next(3))
 			{
-				string Message = null;
-				if (MessageQueue.TryDequeue(out Message))
-					Console.WriteLine(Message);
-				else
-					Thread.Sleep(10);
+				case 0:
+					Pipeline.Add(new TestPipe());
+					Console.WriteLine("Add");
+					break;
+				case 1:
+					if (Pipeline.Count > 3)
+					{
+						Pipeline.RemoveAt(R.Next(Pipeline.Count));
+						Console.WriteLine("RemoveAt");
+					}
+					else
+						goto case 0;
+					break;
+				case 2:
+					Pipeline.Insert(R.Next(Pipeline.Count), new TestPipe());
+					Console.WriteLine("Insert");
+					break;
 			}
 		}
 		#endregion
@@ -65,14 +67,10 @@ namespace Test_Pipeline
 
 			int Serial;
 
-			int Count;
-
 			protected override object Process(object Data)
 			{
-				Count++;
-				Console.WriteLine(string.Format("[{0,3}][{1}]", Serial, Count));
-				//MessageQueue.Enqueue(string.Format("[{0,3}][{1}]", Serial, Count));
-				return null;
+				Console.WriteLine(string.Format("[{0,3}][{1}]", Serial, Data));
+				return Data;
 			}
 		}
 		#endregion
